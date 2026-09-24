@@ -43,7 +43,16 @@ Future<void> _initializeApp() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await localeController.loadSaved();
 
-  if (kDebugMode && useLocalEmulators) {
+  // kDebugMode alone used to gate this, but iOS 14+ refuses to launch a
+  // debug-mode Flutter build standalone (outside Xcode/Flutter tooling) at
+  // all — a CI-built .ipa sideloaded via AltStore has to be --profile or
+  // --release to even open. USE_LOCAL_EMULATORS lets a profile/release
+  // build still opt into emulator mode explicitly via --dart-define,
+  // independent of build mode, without changing anything about the normal
+  // `flutter run` debug workflow (kDebugMode is still true there, so this
+  // dart-define isn't needed for that path).
+  const forceLocalEmulators = bool.fromEnvironment('USE_LOCAL_EMULATORS');
+  if ((kDebugMode || forceLocalEmulators) && useLocalEmulators) {
     // 10.0.2.2 is the special alias the Android emulator uses to reach
     // "localhost" on the machine it's running on — the default, so the
     // usual `flutter run` on the emulator needs no flag. Testing on a real
