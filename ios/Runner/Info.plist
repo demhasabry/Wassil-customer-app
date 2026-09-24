@@ -28,6 +28,24 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Used to default your pickup location to where you are right now — you can always move the pin.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Used to take a profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Used to choose a profile photo from your gallery.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Firebase Auth's phone-verification reCAPTCHA fallback redirect —
+				     the "Encoded App ID" from Firebase console (Project settings ->
+				     General -> Your apps), required since this project has no
+				     GoogleService-Info.plist (Firebase options come from
+				     firebase_options.dart instead). -->
+				<string>app-1-861601972069-ios-0e3e65691a9fbc67bc6b8c</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
