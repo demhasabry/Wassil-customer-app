@@ -66,12 +66,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
   }
 
-  /// authStateChanges().first mirrors the old AuthGateScreen StreamBuilder's
-  /// first emission — still correct here since login screens navigate away
-  /// with pushAndRemoveUntil rather than relying on this stream firing again
-  /// mid-session (see the comment in customer_profile_screen.dart's logout).
+  /// Reads currentUser directly (synchronous, already populated by the time
+  /// _initializeApp() -> Firebase.initializeApp() has completed) rather than
+  /// awaiting authStateChanges().first — that stream's first emission was
+  /// observed to never fire on a real iOS device freshly connected to the
+  /// local Auth emulator (useAuthEmulator was just called moments earlier in
+  /// the same startup sequence), hanging the splash screen indefinitely.
+  /// Login screens navigate away with pushAndRemoveUntil rather than relying
+  /// on a stream firing again mid-session (see the comment in
+  /// customer_profile_screen.dart's logout), so a one-time synchronous read
+  /// here is just as correct.
   Future<Widget> _resolveDestination() async {
-    final user = await FirebaseAuth.instance.authStateChanges().first;
+    final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const PhoneLoginScreen();
     return resolveHomeDestination(user.uid);
   }
