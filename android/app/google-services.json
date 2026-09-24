@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "861601972069",
+    "project_id": "delivery-platform-atbara",
+    "storage_bucket": "delivery-platform-atbara.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:861601972069:android:0582426197f3a344bc6b8c",
+        "android_client_info": {
+          "package_name": "com.example.customer_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCW11bNF8gtN-y-fP50-7betQZBhZmNuHY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

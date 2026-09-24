@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- src/debug only — never compiled into a release build. Broadened from
+     just 10.0.2.2/localhost to all hosts because real-device emulator
+     testing needs cleartext to whatever address actually reaches this
+     machine (a LAN IP, a hotspot IP, or 127.0.0.1 over `adb reverse`),
+     which varies by setup and isn't known in advance. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
