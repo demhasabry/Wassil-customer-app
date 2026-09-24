@@ -1,12 +1,25 @@
-name: iOS unsigned build
+name: iOS unsigned build (local emulator)
 
-# Produces an UNSIGNED .ipa artifact — no Apple Developer account or
-# certificates involved anywhere in this workflow. Signing happens later,
-# on-device, when you sideload via AltStore/AltServer using your own free
-# Apple ID. This just proves the app actually compiles for iOS and hands
-# you something AltStore can re-sign.
+# Produces an UNSIGNED, DEBUG-mode .ipa artifact — no Apple Developer
+# account or certificates involved anywhere in this workflow. Signing
+# happens later, on-device, when you sideload via AltStore/AltServer using
+# your own free Apple ID.
+#
+# Built in --debug mode (not --release) specifically so kDebugMode is true
+# at runtime, which is what makes main.dart's useLocalEmulators block
+# actually run and connect to a Firebase emulator instead of the real
+# (currently undeployed) Firebase project. That emulator has to be YOUR
+# PC's, reachable over WiFi — same setup as testing the Android app
+# physically: run `firebase emulators:start` on your PC, keep the iPhone on
+# the SAME WiFi network, then trigger this workflow with your PC's current
+# LAN IP (run `ipconfig`, look under your WiFi adapter for "IPv4 Address").
 on:
   workflow_dispatch:
+    inputs:
+      emulator_host:
+        description: "Your PC's LAN IP (ipconfig -> WiFi adapter -> IPv4 Address). Phone and PC must be on the same WiFi."
+        required: true
+        type: string
   push:
     branches: [main]
 
@@ -22,18 +35,24 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build unsigned iOS app
-        run: flutter build ios --release --no-codesign
+      - name: Build debug iOS app pointed at the local Firebase emulator
+        # The '10.0.2.2' fallback only matters for an automatic push-trigger
+        # build (no input given) — it's the Android-emulator alias and does
+        # nothing useful on iOS, so always use "Run workflow" with your real
+        # LAN IP when you actually intend to test on your phone.
+        run: |
+          flutter build ios --debug --no-codesign \
+            --dart-define=EMULATOR_HOST=${{ github.event.inputs.emulator_host || '10.0.2.2' }}
 
       - name: Package into an .ipa
         run: |
           mkdir -p build/ios/ipa/Payload
           cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
-          zip -r ../../../customer_app-unsigned.ipa Payload
+          zip -r ../../../customer_app-debug.ipa Payload
 
       - uses: actions/upload-artifact@v4
         with:
-          name: customer_app-unsigned-ipa
-          path: customer_app-unsigned.ipa
+          name: customer_app-debug-ipa
+          path: customer_app-debug.ipa
           retention-days: 14
