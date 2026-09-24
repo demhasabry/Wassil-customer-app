@@ -99,8 +99,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
+      // TEMPORARY: showing the raw exception instead of the generic message
+      // while diagnosing an iOS-only failure here — revert to just
+      // l10n.profileSetupError once that's root-caused.
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.profileSetupError)),
+        SnackBar(content: Text('${AppLocalizations.of(context)!.profileSetupError}\n$e')),
       );
     }
   }
