@@ -84,6 +84,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     try {
       String? photoUrl;
       if (_photo != null) {
+        // Force a fresh ID token before uploading — confirmed via a direct
+        // authenticated REST call that the emulator/rules correctly accept
+        // this exact write, so the failure was the Storage SDK not
+        // attaching a valid token to the request on iOS (Auth/Firestore
+        // refresh tokens more eagerly than Storage does).
+        await FirebaseAuth.instance.currentUser?.getIdToken(true);
         final ref = FirebaseStorage.instance.ref('profile_pictures/$_uid/photo.jpg');
         await ref.putFile(_photo!);
         photoUrl = await ref.getDownloadURL();
