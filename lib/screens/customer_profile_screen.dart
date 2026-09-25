@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/storage_upload.dart';
+import '../services/callable_function.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../l10n/locale_controller.dart';
 import '../theme/app_colors.dart';
@@ -127,8 +128,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     if (code == null || code.isEmpty || !mounted) return;
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('redeemPromoCode');
-      final result = await callable.call({'code': code});
+      final result = await callFunction('redeemPromoCode', {'code': code});
       if (!mounted) return;
       final amount = (result.data['amount'] as num).toStringAsFixed(0);
       ScaffoldMessenger.of(context).showSnackBar(

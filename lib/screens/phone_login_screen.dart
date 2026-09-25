@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../services/post_login_router.dart';
 import '../services/phone_auth_completion.dart';
+import '../services/callable_function.dart';
 import '../utils/synthetic_email.dart';
 import '../widgets/app_logo.dart';
 import '../theme/app_colors.dart';
@@ -60,8 +61,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     });
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('checkPhoneRegistered');
-      final result = await callable.call({'phone': phone});
+      final result = await callFunction('checkPhoneRegistered', {'phone': phone});
       final exists = result.data['exists'] as bool;
       final hasPassword = result.data['hasPassword'] as bool;
 

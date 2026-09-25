@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import '../services/callable_function.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -47,8 +48,7 @@ class _RateRiderScreenState extends State<RateRiderScreen> {
     });
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('submitRating');
-      await callable.call({
+      await callFunction('submitRating', {
         'requestId': widget.requestId,
         'stars': _selectedStars,
         'comment': _commentController.text.trim().isEmpty ? null : _commentController.text.trim(),

@@ -18,6 +18,7 @@ import '../utils/localized_vehicle_type.dart';
 import '../utils/vehicle_color.dart';
 import '../utils/bearing.dart';
 import '../services/sound_service.dart';
+import '../services/callable_function.dart';
 import '../widgets/draining_glass_indicator.dart';
 import 'create_request_screen.dart';
 import 'tracking_screen.dart';
@@ -194,8 +195,7 @@ class _BidListScreenState extends State<BidListScreen> {
 
     setState(() => _isCancelling = true);
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('cancelRequest');
-      await callable.call({'requestId': widget.requestId, 'reason': reason});
+      await callFunction('cancelRequest', {'requestId': widget.requestId, 'reason': reason});
       if (!mounted) return;
       // This screen now reaches here via pushReplacement (create-request
       // screen is no longer underneath it in the stack), so popUntil(isFirst)
@@ -229,8 +229,7 @@ class _BidListScreenState extends State<BidListScreen> {
   Future<void> _acceptBid(Bid bid) async {
     setState(() => _acceptingBidId = bid.id);
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('acceptBid');
-      await callable.call({'requestId': widget.requestId, 'bidId': bid.id});
+      await callFunction('acceptBid', {'requestId': widget.requestId, 'bidId': bid.id});
       SoundService.bidAccepted();
       // Nothing to navigate here — the StreamBuilder in build() reactively
       // pushes TrackingScreen once the resulting Firestore update (status:
@@ -254,8 +253,7 @@ class _BidListScreenState extends State<BidListScreen> {
   Future<void> _rejectBid(Bid bid) async {
     setState(() => _rejectingBidId = bid.id);
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('rejectBid');
-      await callable.call({'requestId': widget.requestId, 'bidId': bid.id});
+      await callFunction('rejectBid', {'requestId': widget.requestId, 'bidId': bid.id});
       // No further action needed — watchBids() already filters to
       // status == 'pending', so this row disappears on its own once
       // Firestore pushes the update.
@@ -314,8 +312,7 @@ class _BidListScreenState extends State<BidListScreen> {
 
     setState(() => _isBoostingPrice = true);
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('boostRequestPrice');
-      await callable.call({'requestId': widget.requestId, 'newPrice': newPrice});
+      await callFunction('boostRequestPrice', {'requestId': widget.requestId, 'newPrice': newPrice});
       if (!mounted) return;
       // Restart this screen's own 5-minute countdown to match the fresh
       // biddingClosesAt the function just wrote server-side.

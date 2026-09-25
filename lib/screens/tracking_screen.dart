@@ -14,6 +14,7 @@ import '../utils/localized_vehicle_type.dart';
 import '../utils/vehicle_color.dart';
 import '../services/pricing_service.dart' show fetchRoute;
 import '../services/sound_service.dart';
+import '../services/callable_function.dart';
 import 'bid_list_screen.dart';
 import 'create_request_screen.dart';
 import 'rate_rider_screen.dart';
@@ -93,7 +94,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   // the caller.
   Future<void> _sendArrivalAcknowledgment() async {
     try {
-      await FirebaseFunctions.instance.httpsCallable('acknowledgeArrival').call({'requestId': widget.requestId});
+      await callFunction('acknowledgeArrival', {'requestId': widget.requestId});
     } catch (_) {}
   }
 
@@ -113,8 +114,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
     setState(() => _isCancelling = true);
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('cancelRequest');
-      await callable.call({'requestId': widget.requestId, 'reason': reason});
+      await callFunction('cancelRequest', {'requestId': widget.requestId, 'reason': reason});
       SoundService.cancellation();
       if (!mounted) return;
       // Go all the way back to a fresh create-request screen, not just one
