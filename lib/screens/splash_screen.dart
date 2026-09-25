@@ -79,7 +79,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<Widget> _resolveDestination() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const PhoneLoginScreen();
-    return resolveHomeDestination(user.uid);
+    try {
+      // A cached session whose token no longer means anything to the
+      // backend it's pointed at (e.g. a local emulator that's since been
+      // restarted/wiped, or — in production — a genuinely revoked token)
+      // must never be able to hang this screen forever: the Firestore read
+      // inside resolveHomeDestination can hang indefinitely trying to
+      // refresh a token the backend doesn't recognize. Timing out and
+      // signing out falls back to a fresh login instead.
+      return await resolveHomeDestination(user.uid).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      await FirebaseAuth.instance.signOut();
+      return const PhoneLoginScreen();
+    }
   }
 
   /// Raw 0..1 progress through [beginMs, endMs] of the timeline, clamped —
