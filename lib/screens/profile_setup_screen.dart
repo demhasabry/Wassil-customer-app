@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import '../services/storage_upload.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../utils/localized_zone_name.dart';
 import '../theme/app_colors.dart';
@@ -84,15 +84,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     try {
       String? photoUrl;
       if (_photo != null) {
-        // Force a fresh ID token before uploading — confirmed via a direct
-        // authenticated REST call that the emulator/rules correctly accept
-        // this exact write, so the failure was the Storage SDK not
-        // attaching a valid token to the request on iOS (Auth/Firestore
-        // refresh tokens more eagerly than Storage does).
-        await FirebaseAuth.instance.currentUser?.getIdToken(true);
-        final ref = FirebaseStorage.instance.ref('profile_pictures/$_uid/photo.jpg');
-        await ref.putFile(_photo!);
-        photoUrl = await ref.getDownloadURL();
+        photoUrl = await uploadToStorage(file: _photo!, storagePath: 'profile_pictures/$_uid/photo.jpg');
       }
 
       final updates = <String, dynamic>{'gender': _gender};

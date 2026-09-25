@@ -4,8 +4,8 @@ import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import '../services/storage_upload.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../l10n/locale_controller.dart';
 import '../theme/app_colors.dart';
@@ -63,14 +63,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
     setState(() => _isUploadingPhoto = true);
     try {
-      // Force a fresh ID token before uploading — the Storage SDK doesn't
-      // refresh/attach tokens as eagerly as Auth/Firestore do, which caused
-      // uploads to fail with storage/unauthorized on iOS despite a
-      // perfectly valid session and correct rules.
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
-      final ref = FirebaseStorage.instance.ref('profile_pictures/$_uid/photo.jpg');
-      await ref.putFile(File(picked.path));
-      final photoUrl = await ref.getDownloadURL();
+      final photoUrl =
+          await uploadToStorage(file: File(picked.path), storagePath: 'profile_pictures/$_uid/photo.jpg');
       await FirebaseFirestore.instance.collection('users').doc(_uid).update({'photoUrl': photoUrl});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.profileUpdated)));
