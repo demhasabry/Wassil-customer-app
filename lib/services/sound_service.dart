@@ -67,6 +67,8 @@ class SoundService {
   static AudioPlayer? _loopingPlayer;
   static StreamSubscription<void>? _loopingSubscription;
 
+  static const String _driverArrivedAsset = 'sounds/driver_arrived.mp3';
+
   static Future<void> startDriverArrivedLoop() async {
     await stopDriverArrivedLoop();
     try {
@@ -74,12 +76,18 @@ class SoundService {
       await player.setReleaseMode(ReleaseMode.stop);
       _loopingPlayer = player;
       _loopingSubscription = player.onPlayerComplete.listen((_) {
+        // A full play() call again, not seek(zero)+resume() — the latter
+        // was found to only restart reliably on Android; on iOS, once a
+        // player reaches "completed", resume() after a seek doesn't
+        // reliably resume playback (an AVAudioPlayer state-transition quirk
+        // distinct from Android's ExoPlayer/MediaPlayer backend), so the
+        // loop played once and then silently stopped. Re-issuing play()
+        // works identically on both platforms.
         if (_loopingPlayer == player) {
-          player.seek(Duration.zero);
-          player.resume();
+          player.play(AssetSource(_driverArrivedAsset), ctx: _bgContext);
         }
       });
-      await player.play(AssetSource('sounds/driver_arrived.mp3'), ctx: _bgContext);
+      await player.play(AssetSource(_driverArrivedAsset), ctx: _bgContext);
     } catch (_) {
       _loopingPlayer = null;
     }

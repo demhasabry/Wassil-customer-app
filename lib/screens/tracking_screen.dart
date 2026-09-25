@@ -860,7 +860,11 @@ class _RiderLocationMapState extends State<_RiderLocationMap> {
       annotation.geometry = Point(coordinates: newPosition);
       manager.update(annotation);
     }
-    _mapboxMap?.setCamera(CameraOptions(center: Point(coordinates: newPosition)));
+    // Deliberately NOT re-centering the camera here on every update — that
+    // fought any manual pan/zoom the customer did, snapping straight back
+    // to the rider a moment later. The moving dot above is enough on its
+    // own; _RecenterOnRiderButton below covers "the rider moved off-screen
+    // and I want to find them again."
 
     if (destinationChanged && manager != null) {
       final destination = widget.destination;
@@ -899,16 +903,52 @@ class _RiderLocationMapState extends State<_RiderLocationMap> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return MapWidget(
-      key: const ValueKey('trackingMap'),
-      cameraOptions: CameraOptions(
+  Future<void> _recenterOnRider() async {
+    final map = _mapboxMap;
+    if (map == null) return;
+    await map.flyTo(
+      CameraOptions(
         center: Point(coordinates: Position(widget.location.longitude, widget.location.latitude)),
         zoom: 15.0,
       ),
-      styleUri: MapboxStyles.MAPBOX_STREETS,
-      onMapCreated: _onMapCreated,
+      MapAnimationOptions(duration: 700),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        MapWidget(
+          key: const ValueKey('trackingMap'),
+          cameraOptions: CameraOptions(
+            center: Point(coordinates: Position(widget.location.longitude, widget.location.latitude)),
+            zoom: 15.0,
+          ),
+          styleUri: MapboxStyles.MAPBOX_STREETS,
+          onMapCreated: _onMapCreated,
+        ),
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.only(end: 16),
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 3,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _recenterOnRider,
+                child: const SizedBox(
+                  width: 42,
+                  height: 42,
+                  child: Icon(Icons.near_me, color: AppColors.primary, size: 20),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
