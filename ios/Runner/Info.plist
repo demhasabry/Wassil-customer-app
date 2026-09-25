@@ -26,6 +26,19 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- TESTING ONLY (local emulator over plain HTTP) — iOS blocks
+	     non-HTTPS network requests by default (App Transport Security).
+	     Firebase Storage's upload path (NSURLSession-based) enforces this
+	     strictly, unlike Auth/Firestore/Functions, which is why storage
+	     uploads failed while everything else worked against the same local
+	     emulator over WiFi. Production talks to Firebase over real HTTPS
+	     regardless of this setting, so it's harmless there — but revisit
+	     scoping this down (or removing it) before any App Store submission. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Used to default your pickup location to where you are right now — you can always move the pin.</string>
 	<key>NSCameraUsageDescription</key>
