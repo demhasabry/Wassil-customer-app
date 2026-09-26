@@ -63,6 +63,29 @@ jobs:
             --dart-define=USE_LOCAL_EMULATORS=true \
             --dart-define=EMULATOR_HOST=${{ github.event.inputs.emulator_host || '10.0.2.2' }}
 
+      - name: Ad-hoc sign to embed entitlements for AltServer to read
+        # --no-codesign means NO codesign step ever runs during the build
+        # above, so the binaries carry zero entitlements — CODE_SIGN_ENTITLEMENTS
+        # in the Xcode project only controls what a real codesign step WOULD
+        # embed, and none does. AltServer's signer (AltSign) can only grant a
+        # capability (here, the App Group the Dynamic Island / Live Activity
+        # needs to actually receive live content, not just start) that it can
+        # read off an *existing* entitlements blob on the binary when it
+        # resigns on your PC — with nothing there, it silently falls back to
+        # a minimal default with no App Group, which is exactly why the
+        # widget always saw an empty shared container despite everything
+        # else building and installing fine. Ad-hoc signing (identity "-")
+        # needs no certificate or Apple ID — it only exists to attach a
+        # readable entitlements blob for AltServer to discover and reproduce
+        # later; it is NOT the real signature the phone will run with.
+        # Nested code signs before the containing bundle, matching Apple's
+        # own signing order.
+        run: |
+          codesign --force --sign - --entitlements ios/DeliveryWidget/DeliveryWidget.entitlements \
+            build/ios/iphoneos/Runner.app/PlugIns/DeliveryWidget.appex
+          codesign --force --sign - --entitlements ios/Runner/Runner.entitlements \
+            build/ios/iphoneos/Runner.app
+
       - name: Package into an .ipa
         run: |
           mkdir -p build/ios/ipa/Payload
