@@ -29,8 +29,16 @@ extension LiveActivitiesAppAttributes {
 // Must match customer_app's live_activity_service.dart's appGroupId exactly.
 private let sharedDefaults = UserDefaults(suiteName: "group.com.example.customerApp.liveactivity")
 
+// Deliberately diagnostic, not a friendly default — this can only be seen by
+// checking the phone directly (no Mac to pull device logs from), so if the
+// read side ever fails again, the two failure modes need to be
+// distinguishable from a screenshot alone: no App Groups entitlement at all
+// (sharedDefaults nil) vs. entitlement present but this specific key never
+// written (wrong/stale activity id, or the writer-side app never wrote it).
 private func statusText(_ context: ActivityViewContext<LiveActivitiesAppAttributes>) -> String {
-    sharedDefaults?.string(forKey: context.attributes.prefixedKey("statusText")) ?? "Delivery in progress"
+    guard let defaults = sharedDefaults else { return "No App Group access" }
+    return defaults.string(forKey: context.attributes.prefixedKey("statusText"))
+        ?? "No data (id \(context.attributes.id.uuidString.prefix(8)))"
 }
 
 private func etaText(_ context: ActivityViewContext<LiveActivitiesAppAttributes>) -> String {

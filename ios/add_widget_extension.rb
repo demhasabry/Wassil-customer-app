@@ -45,13 +45,28 @@ project = Xcodeproj::Project.open(PROJECT_PATH)
 runner_target = project.targets.find { |t| t.name == 'Runner' }
 raise "Runner target not found in #{PROJECT_PATH}" if runner_target.nil?
 
+# Runner.entitlements exists on disk (App Group capability, required for the
+# main app process to write into the same shared UserDefaults container the
+# widget extension reads from) but was never wired into a CODE_SIGN_ENTITLEMENTS
+# build setting anywhere — Xcode does not pick up an entitlements file just
+# because it's sitting next to the target's source files. Without this, Runner
+# builds and signs successfully but silently WITHOUT the App Groups capability,
+# so every value the live_activities plugin writes from the main app never
+# reaches the container DeliveryWidget reads from — it just silently no-ops,
+# no build error, no crash, the Live Activity still starts, it just always
+# shows the widget's own hardcoded fallback text. Set on every run (not just
+# target-creation) so a build from before this fix landed also gets corrected.
+runner_target.build_configurations.each do |config|
+  config.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'Runner/Runner.entitlements'
+end
+
 if project.targets.any? { |t| t.name == EXTENSION_NAME }
   puts "#{EXTENSION_NAME} target already exists — verifying build phase order..."
   embed_phase = runner_target.copy_files_build_phases.find { |p| p.name == 'Embed Foundation Extensions' }
   if embed_phase
     fix_build_phase_order!(runner_target, embed_phase)
-    project.save
   end
+  project.save
   puts 'Done (idempotent run).'
   exit 0
 end
