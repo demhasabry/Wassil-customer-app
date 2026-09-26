@@ -13,15 +13,48 @@ EXTENSION_NAME = 'DeliveryWidget'
 EXTENSION_BUNDLE_ID = 'com.example.customerApp.DeliveryWidget'
 DEPLOYMENT_TARGET = '16.1'
 
-project = Xcodeproj::Project.open(PROJECT_PATH)
-
-if project.targets.any? { |t| t.name == EXTENSION_NAME }
-  puts "#{EXTENSION_NAME} target already exists — skipping (idempotent run)."
-  exit 0
+# Flutter's own "Thin Binary" run-script phase strips unused architectures
+# from every embedded binary and has no declared inputs/outputs, so Xcode's
+# dependency analysis can't tell whether it should run before or after a
+# newly-added "Embed Foundation Extensions" copy phase — left at its default
+# (appended-to-the-end) position, this produces "Cycle inside Runner;
+# building could produce unreliable results" and a hard build failure.
+# The documented fix is ordering: Embed Foundation Extensions must come
+# BEFORE Thin Binary in Runner's build phase list. Re-run on every CI build
+# (not just target-creation) since re-opening/re-saving the project can't be
+# trusted to preserve a manually-fixed order across runs.
+def fix_build_phase_order!(runner_target, embed_phase)
+  phases = runner_target.build_phases
+  phases.delete(embed_phase)
+  thin_binary_index = phases.find_index do |p|
+    p.respond_to?(:name) && p.name.to_s.downcase.include?('thin binary')
+  end
+  # Fallback for Flutter versions that don't name the phase exactly "Thin
+  # Binary" — embedding before the first script phase is still correct,
+  # since that's Flutter's own generated script phase either way.
+  thin_binary_index ||= phases.find_index { |p| p.isa == 'PBXShellScriptBuildPhase' }
+  if thin_binary_index
+    phases.insert(thin_binary_index, embed_phase)
+  else
+    phases.push(embed_phase)
+  end
 end
+
+project = Xcodeproj::Project.open(PROJECT_PATH)
 
 runner_target = project.targets.find { |t| t.name == 'Runner' }
 raise "Runner target not found in #{PROJECT_PATH}" if runner_target.nil?
+
+if project.targets.any? { |t| t.name == EXTENSION_NAME }
+  puts "#{EXTENSION_NAME} target already exists — verifying build phase order..."
+  embed_phase = runner_target.copy_files_build_phases.find { |p| p.name == 'Embed Foundation Extensions' }
+  if embed_phase
+    fix_build_phase_order!(runner_target, embed_phase)
+    project.save
+  end
+  puts 'Done (idempotent run).'
+  exit 0
+end
 
 puts "Creating #{EXTENSION_NAME} target..."
 extension_target = project.new_target(:app_extension, EXTENSION_NAME, :ios, DEPLOYMENT_TARGET)
@@ -72,6 +105,8 @@ if embed_phase.nil?
 end
 embedded_file = embed_phase.add_file_reference(extension_target.product_reference)
 embedded_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+
+fix_build_phase_order!(runner_target, embed_phase)
 
 project.save
 puts "#{EXTENSION_NAME} target added successfully."
