@@ -1,47 +1,29 @@
-import 'package:live_activities/live_activities.dart';
+import 'package:flutter/services.dart';
 
-/// Thin wrapper around the `live_activities` plugin, scoped to exactly what
-/// tracking_screen.dart needs: one Live Activity per delivery request,
-/// keyed by requestId (the plugin's own flexible id-matching means the same
-/// string can be reused across create/update/end calls without tracking the
-/// native-generated activity id ourselves).
+/// Talks directly to a small custom native Swift bridge
+/// (ios/Runner/LiveActivityChannel.swift) rather than the `live_activities`
+/// package. That package's content is delivered via a shared App Group
+/// UserDefaults container, which needs an App Groups entitlement — and
+/// registering a NEW App Group identifier turned out to require enrollment
+/// in Apple's paid Developer Program (confirmed directly against
+/// developer.apple.com with this project's free Apple ID, which this whole
+/// sideloading setup depends on). ActivityKit's own ContentState sync
+/// between the app and widget extension processes is a separate,
+/// OS-guaranteed mechanism that needs no such entitlement, so this bridges
+/// straight to that instead.
 ///
-/// Deliberately iOS-only in spirit — every call is wrapped so a failure
-/// (unsupported iOS version, Live Activities disabled in Settings, or
-/// simply running on Android where this plugin is a no-op-ish shim) never
+/// Deliberately best-effort throughout — every call is wrapped so a failure
+/// (unsupported iOS version, Live Activities disabled in Settings, running
+/// on Android where the native handler isn't registered at all) never
 /// breaks the actual delivery-tracking flow this sits alongside. The
-/// Dynamic Island itself only exists on iPhone 14 Pro and later (all
-/// iPhone 15/16 models); everything else just gets the same content as a
-/// Lock Screen card, which iOS handles automatically — nothing here needs
-/// to know which case it is.
+/// Dynamic Island itself only exists on iPhone 14 Pro and later; everything
+/// else just gets the same content as a Lock Screen card, which iOS handles
+/// automatically — nothing here needs to know which case it is.
 class LiveActivityService {
   LiveActivityService._();
 
-  // Must exactly match the App Group string baked into DeliveryWidget's
-  // entitlements, Runner's entitlements, and
-  // DeliveryLiveActivityWidget.swift's UserDefaults(suiteName:) call.
-  static const _appGroupId = 'group.com.example.customerApp.liveactivity';
-
-  static final LiveActivities _plugin = LiveActivities();
-  static bool _initialized = false;
-
-  // TEMPORARY diagnostic — there's no Mac/Xcode console available to this
-  // project, so a silently-swallowed native error is otherwise invisible.
-  // tracking_screen.dart surfaces this once via a SnackBar. Remove once
-  // Live Activities are confirmed working end-to-end on-device.
-  static String? lastError;
-
-  static Future<void> _ensureInit() async {
-    if (_initialized) return;
-    try {
-      await _plugin.init(appGroupId: _appGroupId);
-      _initialized = true;
-    } catch (e) {
-      lastError = 'init failed: $e';
-      // Leave _initialized false — every call below no-ops until a future
-      // attempt succeeds, rather than ever throwing into tracking_screen.
-    }
-  }
+  static const MethodChannel _channel =
+      MethodChannel('com.example.customerApp/liveActivity');
 
   static Future<void> startOrUpdate({
     required String requestId,
@@ -49,34 +31,22 @@ class LiveActivityService {
     String? etaText,
     String? riderName,
   }) async {
-    await _ensureInit();
-    if (!_initialized) return;
     try {
-      await _plugin.createOrUpdateActivity(
-        requestId,
-        {
-          'statusText': statusText,
-          'etaText': etaText ?? '',
-          'riderName': riderName ?? '',
-        },
-        // No server-push updates — this app updates the activity directly
-        // from the Firestore listener already driving tracking_screen.dart
-        // while it's foregrounded/backgrounded-but-running, and enabling
-        // this would require the Push Notifications capability, which free
-        // Apple ID signing (this app's whole sideloading setup) cannot be
-        // granted.
-        iOSEnableRemoteUpdates: false,
-      );
-      lastError = null;
-    } catch (e) {
-      lastError = 'createOrUpdateActivity failed: $e';
+      await _channel.invokeMethod('startOrUpdate', {
+        'requestId': requestId,
+        'statusText': statusText,
+        'etaText': etaText ?? '',
+        'riderName': riderName ?? '',
+      });
+    } catch (_) {
+      // A single missed update is not worth surfacing — the next Firestore
+      // snapshot retries with fresh data moments later regardless.
     }
   }
 
   static Future<void> end(String requestId) async {
-    if (!_initialized) return;
     try {
-      await _plugin.endActivity(requestId);
+      await _channel.invokeMethod('end', {'requestId': requestId});
     } catch (_) {}
   }
 }

@@ -45,19 +45,27 @@ project = Xcodeproj::Project.open(PROJECT_PATH)
 runner_target = project.targets.find { |t| t.name == 'Runner' }
 raise "Runner target not found in #{PROJECT_PATH}" if runner_target.nil?
 
-# Runner.entitlements exists on disk (App Group capability, required for the
-# main app process to write into the same shared UserDefaults container the
-# widget extension reads from) but was never wired into a CODE_SIGN_ENTITLEMENTS
-# build setting anywhere — Xcode does not pick up an entitlements file just
-# because it's sitting next to the target's source files. Without this, Runner
-# builds and signs successfully but silently WITHOUT the App Groups capability,
-# so every value the live_activities plugin writes from the main app never
-# reaches the container DeliveryWidget reads from — it just silently no-ops,
-# no build error, no crash, the Live Activity still starts, it just always
-# shows the widget's own hardcoded fallback text. Set on every run (not just
-# target-creation) so a build from before this fix landed also gets corrected.
-runner_target.build_configurations.each do |config|
-  config.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'Runner/Runner.entitlements'
+# LiveActivityChannel.swift (the native bridge that talks to ActivityKit
+# directly, bypassing the live_activities plugin's App-Group-dependent
+# design — see that file's own comment) lives in ios/Runner/ alongside
+# AppDelegate.swift, but a file just sitting in that folder is NOT
+# automatically compiled — Xcode only builds what's referenced in
+# project.pbxproj's Sources build phase. Wire it in on every run (not just
+# target-creation), same reasoning as the build-phase-order fix below: this
+# script is the only thing that touches this project file before `flutter
+# build ios` runs, so anything Xcode's own UI would normally handle has to
+# happen here instead.
+existing_source_refs = runner_target.source_build_phase.files.map(&:file_ref)
+already_wired = existing_source_refs.any? { |f| f&.path == 'LiveActivityChannel.swift' }
+unless already_wired
+  # Derived from AppDelegate.swift's own existing (guaranteed-correct)
+  # reference rather than guessed by group display name — the safest way to
+  # land the new reference in the same group Xcode already resolves
+  # Runner/*.swift paths against.
+  app_delegate_ref = existing_source_refs.find { |f| f&.path == 'AppDelegate.swift' }
+  runner_group = app_delegate_ref ? app_delegate_ref.parent : (project.main_group['Runner'] || project.main_group)
+  file_ref = runner_group.new_reference('LiveActivityChannel.swift')
+  runner_target.source_build_phase.add_file_reference(file_ref)
 end
 
 if project.targets.any? { |t| t.name == EXTENSION_NAME }
@@ -84,7 +92,6 @@ group = project.main_group.new_group(EXTENSION_NAME, EXTENSION_NAME)
 end
 
 group.new_reference('Info.plist')
-group.new_reference("#{EXTENSION_NAME}.entitlements")
 
 # Frameworks the widget's Swift code imports.
 ['WidgetKit.framework', 'SwiftUI.framework', 'ActivityKit.framework'].each do |framework_name|
@@ -95,7 +102,6 @@ end
 
 extension_target.build_configurations.each do |config|
   config.build_settings['INFOPLIST_FILE'] = "#{EXTENSION_NAME}/Info.plist"
-  config.build_settings['CODE_SIGN_ENTITLEMENTS'] = "#{EXTENSION_NAME}/#{EXTENSION_NAME}.entitlements"
   config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = EXTENSION_BUNDLE_ID
   config.build_settings['PRODUCT_NAME'] = EXTENSION_NAME
   config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = DEPLOYMENT_TARGET

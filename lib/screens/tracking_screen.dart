@@ -353,21 +353,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   final liveActivitySignature = '$status|$hasArrived|$etaToPickup|$etaToDropoff|$riderName';
                   if (liveActivitySignature != _lastLiveActivitySignature) {
                     _lastLiveActivitySignature = liveActivitySignature;
-                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
-                      await LiveActivityService.startOrUpdate(
+                      LiveActivityService.startOrUpdate(
                         requestId: widget.requestId,
                         statusText: liveActivityStatusText,
                         etaText: liveActivityEtaText,
                         riderName: riderName,
                       );
-                      // TEMPORARY diagnostic — see LiveActivityService.lastError's
-                      // own doc comment. Remove alongside it once confirmed working.
-                      if (mounted && context.mounted && LiveActivityService.lastError != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('LiveActivity: ${LiveActivityService.lastError}')),
-                        );
-                      }
                     });
                   }
 

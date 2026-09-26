@@ -2,70 +2,28 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-// Must be named EXACTLY this and declared here, in the widget extension's
-// own target — NOT shared/imported from the live_activities plugin (which
-// has its own internal copy it uses to start the activity). ActivityKit
-// matches the app's Activity.request() to this widget's
-// ActivityConfiguration by decoding across the process boundary, not by
-// Swift's same-module type identity, so two independently-compiled but
-// identically-shaped declarations is the documented, correct pattern for
-// this plugin (github.com/istornz/live_activities).
-struct LiveActivitiesAppAttributes: ActivityAttributes, Identifiable {
-    public typealias LiveDeliveryData = ContentState
-    public struct ContentState: Codable, Hashable {}
-    var id = UUID()
-}
-
-extension LiveActivitiesAppAttributes {
-    func prefixedKey(_ key: String) -> String {
-        return "\(id)_\(key)"
+// Must stay identical in shape to Runner's own copy in
+// ios/Runner/LiveActivityChannel.swift — the two are independently-compiled
+// targets with no shared framework between them, and ActivityKit matches
+// Runner's Activity<DeliveryActivityAttributes>.request() to this widget's
+// ActivityConfiguration by decoding the Codable payload across the process
+// boundary, not by Swift's same-module type identity. Unlike an earlier
+// version of this file, the real content lives directly in ContentState —
+// no App Group/shared UserDefaults involved, since registering a new App
+// Group identifier turned out to require Apple's paid Developer Program.
+struct DeliveryActivityAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        var statusText: String
+        var etaText: String
+        var riderName: String
     }
-}
-
-// The actual content (status text, ETA, rider name) never travels through
-// ActivityKit's ContentState at all — the plugin writes it into this shared
-// App Group UserDefaults store instead, keyed by "{activityId}_{key}", and
-// ContentState just carries a changing timestamp to trigger a re-render.
-// Must match customer_app's live_activity_service.dart's appGroupId exactly.
-private let sharedDefaults = UserDefaults(suiteName: "group.com.example.customerApp.liveactivity")
-
-// Deliberately diagnostic, not a friendly default — this can only be seen by
-// checking the phone directly (no Mac to pull device logs from), so if the
-// read side ever fails again, the two failure modes need to be
-// distinguishable from a screenshot alone: no App Groups entitlement at all
-// (sharedDefaults nil) vs. entitlement present but this specific key never
-// written (wrong/stale activity id, or the writer-side app never wrote it).
-private func statusText(_ context: ActivityViewContext<LiveActivitiesAppAttributes>) -> String {
-    guard let defaults = sharedDefaults else { return "No App Group access" }
-    if let value = defaults.string(forKey: context.attributes.prefixedKey("statusText")) {
-        return value
-    }
-    // Distinguishes "the write never happened at all" (entitlement/init
-    // failure on the writer/main-app side) from "it wrote under a
-    // different id than this widget is reading" (a uuid5/activityId
-    // mismatch) — both look identical as a plain "no value" otherwise, and
-    // there's no Mac/Xcode console available to this project to tell them
-    // apart any other way.
-    let matchingKeys = defaults.dictionaryRepresentation().keys.filter { $0.hasSuffix("_statusText") }
-    let shortId = context.attributes.id.uuidString.prefix(8)
-    if matchingKeys.isEmpty {
-        return "No data at all (reading id \(shortId))"
-    }
-    return "Id mismatch: reading \(shortId), found \(matchingKeys.joined(separator: ", "))"
-}
-
-private func etaText(_ context: ActivityViewContext<LiveActivitiesAppAttributes>) -> String {
-    sharedDefaults?.string(forKey: context.attributes.prefixedKey("etaText")) ?? ""
-}
-
-private func riderName(_ context: ActivityViewContext<LiveActivitiesAppAttributes>) -> String {
-    sharedDefaults?.string(forKey: context.attributes.prefixedKey("riderName")) ?? ""
+    var requestId: String
 }
 
 struct DeliveryLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: LiveActivitiesAppAttributes.self) { context in
-            DeliveryLockScreenView(context: context)
+        ActivityConfiguration(for: DeliveryActivityAttributes.self) { context in
+            DeliveryLockScreenView(state: context.state)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -74,19 +32,19 @@ struct DeliveryLiveActivityWidget: Widget {
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    if !etaText(context).isEmpty {
-                        Text(etaText(context))
+                    if !context.state.etaText.isEmpty {
+                        Text(context.state.etaText)
                             .font(.headline)
                             .padding(.trailing, 4)
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(statusText(context))
+                        Text(context.state.statusText)
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        if !riderName(context).isEmpty {
-                            Text(riderName(context))
+                        if !context.state.riderName.isEmpty {
+                            Text(context.state.riderName)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -97,8 +55,8 @@ struct DeliveryLiveActivityWidget: Widget {
                 Image(systemName: "shippingbox.fill")
                     .foregroundColor(.orange)
             } compactTrailing: {
-                if !etaText(context).isEmpty {
-                    Text(etaText(context))
+                if !context.state.etaText.isEmpty {
+                    Text(context.state.etaText)
                         .font(.caption2)
                         .monospacedDigit()
                 }
@@ -111,7 +69,7 @@ struct DeliveryLiveActivityWidget: Widget {
 }
 
 struct DeliveryLockScreenView: View {
-    let context: ActivityViewContext<LiveActivitiesAppAttributes>
+    let state: DeliveryActivityAttributes.ContentState
 
     var body: some View {
         HStack(spacing: 12) {
@@ -119,19 +77,17 @@ struct DeliveryLockScreenView: View {
                 .font(.title2)
                 .foregroundColor(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text(statusText(context))
+                Text(state.statusText)
                     .font(.headline)
-                let rider = riderName(context)
-                if !rider.isEmpty {
-                    Text(rider)
+                if !state.riderName.isEmpty {
+                    Text(state.riderName)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
             Spacer()
-            let eta = etaText(context)
-            if !eta.isEmpty {
-                Text(eta)
+            if !state.etaText.isEmpty {
+                Text(state.etaText)
                     .font(.title3)
                     .fontWeight(.semibold)
             }
