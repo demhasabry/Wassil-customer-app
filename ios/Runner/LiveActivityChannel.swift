@@ -26,7 +26,7 @@ struct DeliveryActivityAttributes: ActivityAttributes {
 
 enum LiveActivityChannel {
     static func register(with registry: FlutterPluginRegistry) {
-        let registrar = registry.registrar(forPlugin: "LiveActivityChannel")
+        guard let registrar = registry.registrar(forPlugin: "LiveActivityChannel") else { return }
         let channel = FlutterMethodChannel(
             name: "com.example.customerApp/liveActivity",
             binaryMessenger: registrar.messenger()
@@ -101,10 +101,6 @@ enum LiveActivityChannel {
         guard let activity = Activity<DeliveryActivityAttributes>.activities.first(where: { $0.attributes.requestId == requestId }) else {
             return
         }
-        if #available(iOS 16.2, *) {
-            await activity.end(activity.content, dismissalPolicy: .immediate)
-        } else {
-            await activity.end(using: activity.contentState, dismissalPolicy: .immediate)
-        }
+        await activity.end(dismissalPolicy: .immediate)
     }
 }
