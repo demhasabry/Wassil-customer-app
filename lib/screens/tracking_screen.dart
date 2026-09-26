@@ -347,9 +347,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   final liveActivityStatusText = status == 'assigned'
                       ? (hasArrived ? l10n.statusRiderArrived : l10n.statusHeadingToPickup)
                       : (status == 'picked_up' ? l10n.statusPickedUpOnWay : l10n.statusTrackingOrder);
+                  // Deliberately NOT etaToPickupLabel/etaToDropoffLabel — those
+                  // are full sentences meant for the in-app banner, and wrap
+                  // to multiple ugly lines (or get truncated entirely) in the
+                  // Dynamic Island's compact/expanded regions, which only have
+                  // room for a few characters.
                   final liveActivityEtaText = status == 'assigned' && !hasArrived && etaToPickup != null
-                      ? l10n.etaToPickupLabel(etaToPickup)
-                      : (status == 'picked_up' && etaToDropoff != null ? l10n.etaToDropoffLabel(etaToDropoff) : null);
+                      ? l10n.liveActivityEtaMinutes(etaToPickup)
+                      : (status == 'picked_up' && etaToDropoff != null ? l10n.liveActivityEtaMinutes(etaToDropoff) : null);
                   final liveActivitySignature = '$status|$hasArrived|$etaToPickup|$etaToDropoff|$riderName';
                   if (liveActivitySignature != _lastLiveActivitySignature) {
                     _lastLiveActivitySignature = liveActivitySignature;

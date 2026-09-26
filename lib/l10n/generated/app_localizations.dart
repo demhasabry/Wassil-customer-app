@@ -1094,6 +1094,12 @@ abstract class AppLocalizations {
   /// **'ETA to you: ~{minutes} min'**
   String etaToDropoffLabel(int minutes);
 
+  /// Deliberately short — used only in the Dynamic Island / Lock Screen Live Activity's compact regions, which have room for only a few characters, unlike etaToPickupLabel/etaToDropoffLabel's full in-app sentence.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String liveActivityEtaMinutes(int minutes);
+
   /// No description provided for @tapStarToRateError.
   ///
   /// In en, this message translates to:

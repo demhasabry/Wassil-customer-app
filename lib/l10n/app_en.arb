@@ -213,6 +213,11 @@
   "@etaToDropoffLabel": {
     "placeholders": { "minutes": { "type": "int" } }
   },
+  "liveActivityEtaMinutes": "{minutes} min",
+  "@liveActivityEtaMinutes": {
+    "description": "Deliberately short — used only in the Dynamic Island / Lock Screen Live Activity's compact regions, which have room for only a few characters, unlike etaToPickupLabel/etaToDropoffLabel's full in-app sentence.",
+    "placeholders": { "minutes": { "type": "int" } }
+  },
   "tapStarToRateError": "Tap a star to rate your rider",
   "submitRatingError": "Could not submit rating.",
   "howWasYourDeliveryTitle": "How was your delivery?",
