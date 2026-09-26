@@ -183,6 +183,7 @@
   "statusTrackingOrder": "جارٍ تتبع الطلب...",
   "etaToPickupLabel": "الوصول المتوقع للاستلام: ~{minutes} دقيقة",
   "etaToDropoffLabel": "الوصول المتوقع إليك: ~{minutes} دقيقة",
+  "liveActivityEtaMinutes": "{minutes} د",
   "tapStarToRateError": "اضغط على نجمة لتقييم سائقك",
   "submitRatingError": "تعذر إرسال التقييم.",
   "howWasYourDeliveryTitle": "كيف كانت تجربة التوصيل؟",

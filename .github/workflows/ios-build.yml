@@ -37,6 +37,17 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Add the DeliveryWidget Live Activity extension target
+        # Adds a native Widget Extension target to Runner.xcodeproj via the
+        # `xcodeproj` gem (the same library CocoaPods/fastlane use for this
+        # kind of project surgery) rather than a checked-in, hand-edited
+        # project file — this repo has no Mac available to add the target
+        # through Xcode's own UI. See ios/add_widget_extension.rb for the
+        # full reasoning. Idempotent — safe on every run.
+        run: |
+          gem install xcodeproj --no-document
+          ruby ios/add_widget_extension.rb
+
       - name: Build profile iOS app pointed at the local Firebase emulator
         # --profile, not --debug — iOS 14+ refuses to launch a debug-mode
         # Flutter build standalone at all (outside Xcode/Flutter tooling),
@@ -47,10 +58,21 @@ jobs:
         # build (no input given) — it's the Android-emulator alias and does
         # nothing useful on iOS, so always use "Run workflow" with your real
         # LAN IP when you actually intend to test on your phone.
+        env:
+          # A stray leading/trailing space typed or pasted into the "Run
+          # workflow" input box (easy to do by accident, and GitHub Actions
+          # does zero trimming) lands INSIDE the --dart-define= value —
+          # `flutter build ios --dart-define=EMULATOR_HOST= 192.168.x.x` then
+          # splits into two shell words, and Flutter reads the second one as
+          # a target Dart file path ("Target file "192.168.x.x" not found").
+          # `xargs` with no arguments is a standard idiom for trimming
+          # leading/trailing whitespace.
+          EMULATOR_HOST_RAW: ${{ github.event.inputs.emulator_host || '10.0.2.2' }}
         run: |
+          EMULATOR_HOST="$(echo "$EMULATOR_HOST_RAW" | xargs)"
           flutter build ios --profile --no-codesign \
             --dart-define=USE_LOCAL_EMULATORS=true \
-            --dart-define=EMULATOR_HOST=${{ github.event.inputs.emulator_host || '10.0.2.2' }}
+            --dart-define=EMULATOR_HOST="$EMULATOR_HOST"
 
       - name: Package into an .ipa
         run: |

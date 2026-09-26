@@ -552,6 +552,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String liveActivityEtaMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
   String get tapStarToRateError => 'Tap a star to rate your rider';
 
   @override

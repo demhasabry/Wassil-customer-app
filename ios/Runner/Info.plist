@@ -39,6 +39,8 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Used to default your pickup location to where you are right now — you can always move the pin.</string>
 	<key>NSCameraUsageDescription</key>

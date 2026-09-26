@@ -1,0 +1,133 @@
+#!/usr/bin/env ruby
+# Programmatically adds the DeliveryWidget Widget Extension target to
+# Runner.xcodeproj, using the `xcodeproj` gem instead of hand-editing the
+# project file directly — this is the same library CocoaPods/fastlane use
+# internally for exactly this kind of target surgery, which handles the
+# internal UUID bookkeeping correctly rather than risking hand-typed
+# references. Run once per CI build, before `flutter build ios` — idempotent
+# (safe to run again if the target already exists).
+require 'xcodeproj'
+
+PROJECT_PATH = File.join(__dir__, 'Runner.xcodeproj')
+EXTENSION_NAME = 'DeliveryWidget'
+EXTENSION_BUNDLE_ID = 'com.example.customerApp.DeliveryWidget'
+DEPLOYMENT_TARGET = '16.1'
+
+# Flutter's own "Thin Binary" run-script phase strips unused architectures
+# from every embedded binary and has no declared inputs/outputs, so Xcode's
+# dependency analysis can't tell whether it should run before or after a
+# newly-added "Embed Foundation Extensions" copy phase — left at its default
+# (appended-to-the-end) position, this produces "Cycle inside Runner;
+# building could produce unreliable results" and a hard build failure.
+# The documented fix is ordering: Embed Foundation Extensions must come
+# BEFORE Thin Binary in Runner's build phase list. Re-run on every CI build
+# (not just target-creation) since re-opening/re-saving the project can't be
+# trusted to preserve a manually-fixed order across runs.
+def fix_build_phase_order!(runner_target, embed_phase)
+  phases = runner_target.build_phases
+  phases.delete(embed_phase)
+  thin_binary_index = phases.find_index do |p|
+    p.respond_to?(:name) && p.name.to_s.downcase.include?('thin binary')
+  end
+  # Fallback for Flutter versions that don't name the phase exactly "Thin
+  # Binary" — embedding before the first script phase is still correct,
+  # since that's Flutter's own generated script phase either way.
+  thin_binary_index ||= phases.find_index { |p| p.isa == 'PBXShellScriptBuildPhase' }
+  if thin_binary_index
+    phases.insert(thin_binary_index, embed_phase)
+  else
+    phases.push(embed_phase)
+  end
+end
+
+project = Xcodeproj::Project.open(PROJECT_PATH)
+
+runner_target = project.targets.find { |t| t.name == 'Runner' }
+raise "Runner target not found in #{PROJECT_PATH}" if runner_target.nil?
+
+# LiveActivityChannel.swift (the native bridge that talks to ActivityKit
+# directly, bypassing the live_activities plugin's App-Group-dependent
+# design — see that file's own comment) lives in ios/Runner/ alongside
+# AppDelegate.swift, but a file just sitting in that folder is NOT
+# automatically compiled — Xcode only builds what's referenced in
+# project.pbxproj's Sources build phase. Wire it in on every run (not just
+# target-creation), same reasoning as the build-phase-order fix below: this
+# script is the only thing that touches this project file before `flutter
+# build ios` runs, so anything Xcode's own UI would normally handle has to
+# happen here instead.
+existing_source_refs = runner_target.source_build_phase.files.map(&:file_ref)
+already_wired = existing_source_refs.any? { |f| f&.path == 'LiveActivityChannel.swift' }
+unless already_wired
+  # Derived from AppDelegate.swift's own existing (guaranteed-correct)
+  # reference rather than guessed by group display name — the safest way to
+  # land the new reference in the same group Xcode already resolves
+  # Runner/*.swift paths against.
+  app_delegate_ref = existing_source_refs.find { |f| f&.path == 'AppDelegate.swift' }
+  runner_group = app_delegate_ref ? app_delegate_ref.parent : (project.main_group['Runner'] || project.main_group)
+  file_ref = runner_group.new_reference('LiveActivityChannel.swift')
+  runner_target.source_build_phase.add_file_reference(file_ref)
+end
+
+if project.targets.any? { |t| t.name == EXTENSION_NAME }
+  puts "#{EXTENSION_NAME} target already exists — verifying build phase order..."
+  embed_phase = runner_target.copy_files_build_phases.find { |p| p.name == 'Embed Foundation Extensions' }
+  if embed_phase
+    fix_build_phase_order!(runner_target, embed_phase)
+  end
+  project.save
+  puts 'Done (idempotent run).'
+  exit 0
+end
+
+puts "Creating #{EXTENSION_NAME} target..."
+extension_target = project.new_target(:app_extension, EXTENSION_NAME, :ios, DEPLOYMENT_TARGET)
+
+# Group + file references for the extension's own source files, living in
+# the ios/DeliveryWidget/ folder alongside this script.
+group = project.main_group.new_group(EXTENSION_NAME, EXTENSION_NAME)
+
+['DeliveryWidgetBundle.swift', 'DeliveryLiveActivityWidget.swift'].each do |file_name|
+  file_ref = group.new_reference(file_name)
+  extension_target.source_build_phase.add_file_reference(file_ref)
+end
+
+group.new_reference('Info.plist')
+
+# Frameworks the widget's Swift code imports.
+['WidgetKit.framework', 'SwiftUI.framework', 'ActivityKit.framework'].each do |framework_name|
+  framework_ref = project.frameworks_group.new_reference("System/Library/Frameworks/#{framework_name}")
+  framework_ref.source_tree = 'SDKROOT'
+  extension_target.frameworks_build_phase.add_file_reference(framework_ref)
+end
+
+extension_target.build_configurations.each do |config|
+  config.build_settings['INFOPLIST_FILE'] = "#{EXTENSION_NAME}/Info.plist"
+  config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = EXTENSION_BUNDLE_ID
+  config.build_settings['PRODUCT_NAME'] = EXTENSION_NAME
+  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = DEPLOYMENT_TARGET
+  config.build_settings['SWIFT_VERSION'] = '5.0'
+  config.build_settings['TARGETED_DEVICE_FAMILY'] = '1,2'
+  config.build_settings['SKIP_INSTALL'] = 'YES'
+  config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+  # Matches how the rest of this project builds unsigned in CI
+  # (flutter build ios --no-codesign) — see .github/workflows/ios-build.yml.
+  config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+  config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+end
+
+# Runner needs to build the extension first, then embed the resulting
+# .appex into its own PlugIns folder.
+runner_target.add_dependency(extension_target)
+
+embed_phase = runner_target.copy_files_build_phases.find { |p| p.name == 'Embed Foundation Extensions' }
+if embed_phase.nil?
+  embed_phase = runner_target.new_copy_files_build_phase('Embed Foundation Extensions')
+  embed_phase.dst_subfolder_spec = '13' # PlugIns — Xcode's own convention for extension targets.
+end
+embedded_file = embed_phase.add_file_reference(extension_target.product_reference)
+embedded_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+
+fix_build_phase_order!(runner_target, embed_phase)
+
+project.save
+puts "#{EXTENSION_NAME} target added successfully."
