@@ -15,6 +15,7 @@ import '../utils/vehicle_color.dart';
 import '../services/pricing_service.dart' show fetchRoute;
 import '../services/sound_service.dart';
 import '../services/callable_function.dart';
+import '../services/live_activity_service.dart';
 import 'bid_list_screen.dart';
 import 'create_request_screen.dart';
 import 'rate_rider_screen.dart';
@@ -33,6 +34,15 @@ class _TrackingScreenState extends State<TrackingScreen> {
   bool _isCancelling = false;
   bool _hasNavigatedAway = false;
   bool _hasNavigatedToRating = false;
+  // Only calls into LiveActivityService when this actually changes — the
+  // outer StreamBuilder rebuilds on every rider GPS ping, and re-sending an
+  // identical update on each one would be pure waste (extra UserDefaults
+  // writes, extra ActivityKit churn) for a value that hasn't moved.
+  String? _lastLiveActivitySignature;
+  // Guards the 'delivered' branch's end() call the same way _hasNavigatedAway
+  // guards 'open' — that branch's alreadyRated path returns early on every
+  // rebuild with no other one-shot marker to hook into.
+  bool _hasEndedLiveActivity = false;
   // Fetched once — vehicle type name/color labels only need this to render
   // a display name, not to react live to admin edits mid-delivery.
   Map<String, Map<String, dynamic>> _vehicleTypesCache = {};
@@ -78,6 +88,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
     // Safety net — if the customer navigates away (or the delivery moves
     // on) before tapping "I'm Coming", the loop shouldn't keep playing.
     SoundService.stopDriverArrivedLoop();
+    // Best-effort, not awaited — a screen being torn down shouldn't wait on
+    // a native call. The delivered/cancelled branches below also end it
+    // explicitly, so this is mainly a safety net for other exits (e.g. the
+    // customer backgrounding then killing the app mid-delivery).
+    LiveActivityService.end(widget.requestId);
     super.dispose();
   }
 
@@ -263,6 +278,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   // rider who's no longer coming.
                   if (status == 'open' && !_hasNavigatedAway) {
                     _hasNavigatedAway = true;
+                    LiveActivityService.end(widget.requestId);
                     // Same reliability fix as orderCompleted below — driven
                     // by this screen's own live status field rather than the
                     // "request_reopened" FCM push, which only fires while
@@ -278,6 +294,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   }
 
                   if (status == 'delivered') {
+                    if (!_hasEndedLiveActivity) {
+                      _hasEndedLiveActivity = true;
+                      LiveActivityService.end(widget.requestId);
+                    }
                     if (alreadyRated) {
                       return Column(children: [_ThankYouCard(amount: agreedPrice)]);
                     }
@@ -317,6 +337,32 @@ class _TrackingScreenState extends State<TrackingScreen> {
                       ? requestData['pickup']
                       : requestData['dropoff']) as Map<String, dynamic>?;
                   final destinationPoint = destination?['geopoint'] as GeoPoint?;
+
+                  // Mirrors _StatusBanner's own wording below so the Lock
+                  // Screen / Dynamic Island card never disagrees with the
+                  // in-app banner. Signature-gated because this whole
+                  // builder re-runs on every rider GPS ping (see
+                  // _lastLiveActivitySignature's own doc comment), and only
+                  // status/eta/rider changes are worth pushing natively.
+                  final liveActivityStatusText = status == 'assigned'
+                      ? (hasArrived ? l10n.statusRiderArrived : l10n.statusHeadingToPickup)
+                      : (status == 'picked_up' ? l10n.statusPickedUpOnWay : l10n.statusTrackingOrder);
+                  final liveActivityEtaText = status == 'assigned' && !hasArrived && etaToPickup != null
+                      ? l10n.etaToPickupLabel(etaToPickup)
+                      : (status == 'picked_up' && etaToDropoff != null ? l10n.etaToDropoffLabel(etaToDropoff) : null);
+                  final liveActivitySignature = '$status|$hasArrived|$etaToPickup|$etaToDropoff|$riderName';
+                  if (liveActivitySignature != _lastLiveActivitySignature) {
+                    _lastLiveActivitySignature = liveActivitySignature;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      LiveActivityService.startOrUpdate(
+                        requestId: widget.requestId,
+                        statusText: liveActivityStatusText,
+                        etaText: liveActivityEtaText,
+                        riderName: riderName,
+                      );
+                    });
+                  }
 
                   // Everything before "delivered" is the dark tracking view
                   // per the design handoff — the rating/thank-you screen

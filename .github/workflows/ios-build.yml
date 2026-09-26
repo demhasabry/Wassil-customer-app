@@ -37,6 +37,17 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Add the DeliveryWidget Live Activity extension target
+        # Adds a native Widget Extension target to Runner.xcodeproj via the
+        # `xcodeproj` gem (the same library CocoaPods/fastlane use for this
+        # kind of project surgery) rather than a checked-in, hand-edited
+        # project file — this repo has no Mac available to add the target
+        # through Xcode's own UI. See ios/add_widget_extension.rb for the
+        # full reasoning. Idempotent — safe on every run.
+        run: |
+          gem install xcodeproj --no-document
+          ruby ios/add_widget_extension.rb
+
       - name: Build profile iOS app pointed at the local Firebase emulator
         # --profile, not --debug — iOS 14+ refuses to launch a debug-mode
         # Flutter build standalone at all (outside Xcode/Flutter tooling),

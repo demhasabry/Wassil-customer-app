@@ -28,6 +28,7 @@ dependencies:
   geolocator: ^13.0.1
   flutter_svg: ^2.0.10+1
   audioplayers: ^6.1.0
+  live_activities: ^2.6.0
 
 dev_dependencies:
   flutter_test:
