@@ -37,8 +37,21 @@ private let sharedDefaults = UserDefaults(suiteName: "group.com.example.customer
 // written (wrong/stale activity id, or the writer-side app never wrote it).
 private func statusText(_ context: ActivityViewContext<LiveActivitiesAppAttributes>) -> String {
     guard let defaults = sharedDefaults else { return "No App Group access" }
-    return defaults.string(forKey: context.attributes.prefixedKey("statusText"))
-        ?? "No data (id \(context.attributes.id.uuidString.prefix(8)))"
+    if let value = defaults.string(forKey: context.attributes.prefixedKey("statusText")) {
+        return value
+    }
+    // Distinguishes "the write never happened at all" (entitlement/init
+    // failure on the writer/main-app side) from "it wrote under a
+    // different id than this widget is reading" (a uuid5/activityId
+    // mismatch) — both look identical as a plain "no value" otherwise, and
+    // there's no Mac/Xcode console available to this project to tell them
+    // apart any other way.
+    let matchingKeys = defaults.dictionaryRepresentation().keys.filter { $0.hasSuffix("_statusText") }
+    let shortId = context.attributes.id.uuidString.prefix(8)
+    if matchingKeys.isEmpty {
+        return "No data at all (reading id \(shortId))"
+    }
+    return "Id mismatch: reading \(shortId), found \(matchingKeys.joined(separator: ", "))"
 }
 
 private func etaText(_ context: ActivityViewContext<LiveActivitiesAppAttributes>) -> String {

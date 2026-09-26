@@ -25,12 +25,19 @@ class LiveActivityService {
   static final LiveActivities _plugin = LiveActivities();
   static bool _initialized = false;
 
+  // TEMPORARY diagnostic — there's no Mac/Xcode console available to this
+  // project, so a silently-swallowed native error is otherwise invisible.
+  // tracking_screen.dart surfaces this once via a SnackBar. Remove once
+  // Live Activities are confirmed working end-to-end on-device.
+  static String? lastError;
+
   static Future<void> _ensureInit() async {
     if (_initialized) return;
     try {
       await _plugin.init(appGroupId: _appGroupId);
       _initialized = true;
-    } catch (_) {
+    } catch (e) {
+      lastError = 'init failed: $e';
       // Leave _initialized false — every call below no-ops until a future
       // attempt succeeds, rather than ever throwing into tracking_screen.
     }
@@ -60,9 +67,9 @@ class LiveActivityService {
         // granted.
         iOSEnableRemoteUpdates: false,
       );
-    } catch (_) {
-      // A single missed update is not worth surfacing — the next Firestore
-      // snapshot retries with fresh data moments later regardless.
+      lastError = null;
+    } catch (e) {
+      lastError = 'createOrUpdateActivity failed: $e';
     }
   }
 
