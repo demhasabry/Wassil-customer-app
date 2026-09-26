@@ -296,7 +296,33 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   if (status == 'delivered') {
                     if (!_hasEndedLiveActivity) {
                       _hasEndedLiveActivity = true;
-                      LiveActivityService.end(widget.requestId);
+                      // A final progress: 1.0 update first so the user briefly
+                      // sees the completed bar, then end() after the same
+                      // delay the design spec calls for
+                      // (design_handoff_wassil/LIVE-ACTIVITY-1c.md) rather
+                      // than the activity/notification just vanishing the
+                      // instant "delivered" arrives.
+                      LiveActivityService.startOrUpdate(
+                        requestId: widget.requestId,
+                        statusText: l10n.statusDeliveredThankYou,
+                        etaText: null,
+                        riderName: riderName,
+                        vehicleText: riderVehicleType != null && _vehicleTypesCache[riderVehicleType] != null
+                            ? localizedVehicleTypeName(context, _vehicleTypesCache[riderVehicleType]!)
+                            : null,
+                        plate: riderPlateNumber,
+                        progress: 1.0,
+                        stepLabels: [
+                          l10n.liveActivityStepPickedUp,
+                          l10n.liveActivityStepOnTheWay,
+                          l10n.liveActivityStepDelivered,
+                        ],
+                        unit: l10n.liveActivityMinutesUnit,
+                        unitShort: l10n.liveActivityMinutesShort,
+                      );
+                      Future.delayed(const Duration(seconds: 4), () {
+                        LiveActivityService.end(widget.requestId);
+                      });
                     }
                     if (alreadyRated) {
                       return Column(children: [_ThankYouCard(amount: agreedPrice)]);
@@ -347,15 +373,26 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   final liveActivityStatusText = status == 'assigned'
                       ? (hasArrived ? l10n.statusRiderArrived : l10n.statusHeadingToPickup)
                       : (status == 'picked_up' ? l10n.statusPickedUpOnWay : l10n.statusTrackingOrder);
-                  // Deliberately NOT etaToPickupLabel/etaToDropoffLabel — those
-                  // are full sentences meant for the in-app banner, and wrap
-                  // to multiple ugly lines (or get truncated entirely) in the
-                  // Dynamic Island's compact/expanded regions, which only have
-                  // room for a few characters.
+                  // Digits only, not a full label — see
+                  // LiveActivityService.startOrUpdate's own doc comment for
+                  // why (the unit is rendered natively on each platform so
+                  // the compact pill can show "8m" while the Lock Screen
+                  // shows "8" over "min" independently).
                   final liveActivityEtaText = status == 'assigned' && !hasArrived && etaToPickup != null
-                      ? l10n.liveActivityEtaMinutes(etaToPickup)
-                      : (status == 'picked_up' && etaToDropoff != null ? l10n.liveActivityEtaMinutes(etaToDropoff) : null);
-                  final liveActivitySignature = '$status|$hasArrived|$etaToPickup|$etaToDropoff|$riderName';
+                      ? '$etaToPickup'
+                      : (status == 'picked_up' && etaToDropoff != null ? '$etaToDropoff' : null);
+                  final liveActivityVehicleText = riderVehicleType != null && _vehicleTypesCache[riderVehicleType] != null
+                      ? localizedVehicleTypeName(context, _vehicleTypesCache[riderVehicleType]!)
+                      : null;
+                  // Distance-based interpolation would need a total-trip
+                  // reference this screen doesn't have — flat values within
+                  // each phase's documented range are the spec's own stated
+                  // fallback (design_handoff_wassil/LIVE-ACTIVITY-1c.md).
+                  final liveActivityProgress = status == 'assigned'
+                      ? (hasArrived ? 0.25 : 0.1)
+                      : (status == 'picked_up' ? 0.72 : 0.0);
+                  final liveActivitySignature =
+                      '$status|$hasArrived|$etaToPickup|$etaToDropoff|$riderName|$liveActivityVehicleText|$riderPlateNumber';
                   if (liveActivitySignature != _lastLiveActivitySignature) {
                     _lastLiveActivitySignature = liveActivitySignature;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -365,6 +402,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
                         statusText: liveActivityStatusText,
                         etaText: liveActivityEtaText,
                         riderName: riderName,
+                        vehicleText: liveActivityVehicleText,
+                        plate: riderPlateNumber,
+                        progress: liveActivityProgress,
+                        stepLabels: [
+                          l10n.liveActivityStepPickedUp,
+                          l10n.liveActivityStepOnTheWay,
+                          l10n.liveActivityStepDelivered,
+                        ],
+                        unit: l10n.liveActivityMinutesUnit,
+                        unitShort: l10n.liveActivityMinutesShort,
                       );
                     });
                   }

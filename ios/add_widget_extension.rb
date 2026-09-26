@@ -13,6 +13,29 @@ EXTENSION_NAME = 'DeliveryWidget'
 EXTENSION_BUNDLE_ID = 'com.example.customerApp.DeliveryWidget'
 DEPLOYMENT_TARGET = '16.1'
 
+# Wires Assets.xcassets (WassilPin.imageset — the real pin used in place of
+# the mappin.circle.fill SF Symbol fallback, per
+# design_handoff_wassil/LIVE-ACTIVITY-1c.md) into the widget extension
+# target's Resources build phase. Asset catalogs are ordinary files on disk
+# (JSON + an SVG) that Xcode's own UI would normally wire in with a few
+# clicks — there's no Mac here to do that, so this does the same project
+# surgery the xcodeproj gem already does for the Swift sources below. Called
+# from BOTH branches (idempotent-exists and fresh-create) since the target
+# can already exist (created on an earlier CI run of a long-lived branch)
+# while the asset catalog itself is new in this commit.
+def wire_widget_assets!(project, extension_target)
+  group = project.main_group[EXTENSION_NAME] ||
+          project.main_group.new_group(EXTENSION_NAME, EXTENSION_NAME)
+  already = extension_target.resources_build_phase.files.any? { |f| f.file_ref&.path == 'Assets.xcassets' }
+  return if already
+  ref = group.files.find { |f| f.path == 'Assets.xcassets' } || group.new_reference('Assets.xcassets')
+  ref.last_known_file_type = 'folder.assetcatalog'
+  extension_target.resources_build_phase.add_file_reference(ref)
+  extension_target.build_configurations.each do |config|
+    config.build_settings['ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS'] = 'NO'
+  end
+end
+
 # Flutter's own "Thin Binary" run-script phase strips unused architectures
 # from every embedded binary and has no declared inputs/outputs, so Xcode's
 # dependency analysis can't tell whether it should run before or after a
@@ -69,7 +92,9 @@ unless already_wired
 end
 
 if project.targets.any? { |t| t.name == EXTENSION_NAME }
-  puts "#{EXTENSION_NAME} target already exists — verifying build phase order..."
+  puts "#{EXTENSION_NAME} target already exists — verifying build phase order and assets..."
+  extension_target = project.targets.find { |t| t.name == EXTENSION_NAME }
+  wire_widget_assets!(project, extension_target)
   embed_phase = runner_target.copy_files_build_phases.find { |p| p.name == 'Embed Foundation Extensions' }
   if embed_phase
     fix_build_phase_order!(runner_target, embed_phase)
@@ -92,6 +117,8 @@ group = project.main_group.new_group(EXTENSION_NAME, EXTENSION_NAME)
 end
 
 group.new_reference('Info.plist')
+
+wire_widget_assets!(project, extension_target)
 
 # Frameworks the widget's Swift code imports.
 ['WidgetKit.framework', 'SwiftUI.framework', 'ActivityKit.framework'].each do |framework_name|

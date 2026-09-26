@@ -550,9 +550,19 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String liveActivityEtaMinutes(int minutes) {
-    return '$minutes د';
-  }
+  String get liveActivityStepPickedUp => 'استلم الطرد';
+
+  @override
+  String get liveActivityStepOnTheWay => 'في الطريق';
+
+  @override
+  String get liveActivityStepDelivered => 'تم التوصيل';
+
+  @override
+  String get liveActivityMinutesUnit => 'دقائق';
+
+  @override
+  String get liveActivityMinutesShort => 'د';
 
   @override
   String get tapStarToRateError => 'اضغط على نجمة لتقييم سائقك';

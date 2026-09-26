@@ -33,13 +33,35 @@ class LiveActivityService {
     required String statusText,
     String? etaText,
     String? riderName,
+    String? vehicleText,
+    String? plate,
+    required double progress,
+    required List<String> stepLabels,
+    required String unit,
+    required String unitShort,
   }) async {
     try {
       await _channel.invokeMethod('startOrUpdate', {
         'requestId': requestId,
         'statusText': statusText,
+        // Digits only (e.g. "8"), not a full label — the unit is rendered
+        // natively from `unit`/`unitShort` so the compact pill can show
+        // "8m" and the Lock Screen "8" over "min" independently. Empty
+        // hides the ETA block entirely on both platforms.
         'etaText': etaText ?? '',
         'riderName': riderName ?? '',
+        'vehicleText': vehicleText ?? '',
+        'plate': plate ?? '',
+        'progress': progress,
+        // stepLabels/unit/unitShort are only actually consumed once, at
+        // Live Activity creation on iOS (they live in the immutable
+        // DeliveryActivityAttributes, not ContentState, since the language
+        // can't change mid-delivery) — sent on every call anyway since
+        // Android's plain Intent-extras model has no such distinction and
+        // the cost of a few extra strings per update is negligible.
+        'stepLabels': stepLabels,
+        'unit': unit,
+        'unitShort': unitShort,
       });
     } catch (_) {
       // A single missed update is not worth surfacing — the next Firestore

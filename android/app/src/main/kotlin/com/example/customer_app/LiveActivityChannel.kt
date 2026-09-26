@@ -47,6 +47,11 @@ object LiveActivityChannel {
     const val NOTIFICATION_CHANNEL_ID = "delivery_tracking_v2"
     const val NOTIFICATION_ID = 4200
     private const val BRAND_COLOR = 0xFF2551CA.toInt()
+    // Same "reached/completed" green used everywhere else in
+    // design_handoff_wassil/LIVE-ACTIVITY-1c.md (Lock Screen dots, iOS
+    // progress bars/ring) — kept here too so "green = further along" reads
+    // consistently across both platforms.
+    private const val PROGRESS_GREEN = 0xFF4ADE9B.toInt()
 
     fun register(flutterEngine: FlutterEngine, context: Context) {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME)
@@ -64,6 +69,11 @@ object LiveActivityChannel {
                                 putExtra(DeliveryTrackingService.EXTRA_STATUS_TEXT, call.argument<String>("statusText") ?: "")
                                 putExtra(DeliveryTrackingService.EXTRA_ETA_TEXT, call.argument<String>("etaText") ?: "")
                                 putExtra(DeliveryTrackingService.EXTRA_RIDER_NAME, call.argument<String>("riderName") ?: "")
+                                putExtra(DeliveryTrackingService.EXTRA_VEHICLE_TEXT, call.argument<String>("vehicleText") ?: "")
+                                putExtra(DeliveryTrackingService.EXTRA_PLATE, call.argument<String>("plate") ?: "")
+                                putExtra(DeliveryTrackingService.EXTRA_PROGRESS, call.argument<Double>("progress") ?: 0.0)
+                                putExtra(DeliveryTrackingService.EXTRA_UNIT, call.argument<String>("unit") ?: "")
+                                putExtra(DeliveryTrackingService.EXTRA_UNIT_SHORT, call.argument<String>("unitShort") ?: "")
                             }
                             ContextCompat.startForegroundService(context, intent)
                             result.success(null)
@@ -145,9 +155,21 @@ object LiveActivityChannel {
 
     // Called by DeliveryTrackingService, which owns the foreground-service
     // lifecycle and must pass this straight into startForeground().
-    fun buildNotification(context: Context, statusText: String, etaText: String, riderName: String): Notification {
+    fun buildNotification(
+        context: Context,
+        statusText: String,
+        etaText: String,
+        riderName: String,
+        vehicleText: String,
+        plate: String,
+        progress: Double,
+        unit: String,
+        unitShort: String,
+    ): Notification {
         ensureChannel(context)
-        val contentText = listOf(riderName, etaText).filter { it.isNotEmpty() }.joinToString(" · ")
+        val etaWithUnit = if (etaText.isNotEmpty()) "$etaText $unitShort" else ""
+        val contentText = listOf(riderName, vehicleText, etaWithUnit).filter { it.isNotEmpty() }.joinToString(" · ")
+        val progressPercent = (progress * 100).toInt().coerceIn(0, 100)
         val builder = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setLargeIcon(buildLargeIcon(context))
@@ -160,10 +182,59 @@ object LiveActivityChannel {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setColor(BRAND_COLOR)
-            .setColorized(true)
         if (contentText.isNotEmpty()) {
             builder.setContentText(contentText)
-            builder.setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+        }
+        if (plate.isNotEmpty()) {
+            // Puts the plate in the header next to the app name, where
+            // Android users expect trip details (design_handoff_wassil/
+            // LIVE-ACTIVITY-1c.md).
+            builder.setSubText(plate)
+        }
+        if (Build.VERSION.SDK_INT >= 36) {
+            // Android 16+ Live Updates. Colorized and promoted-ongoing are
+            // mutually exclusive — Android's own documented eligibility
+            // rule for setRequestPromotedOngoing(true) explicitly requires
+            // setColorized(false) — so this branch skips colorized in
+            // exchange for the actual promoted status-bar chip, a strictly
+            // bigger visibility win on OS versions that support it.
+            // Two segments (not the spec text's literal "three" — matching
+            // the 2-phase 0–0.5/0.5–1.0 model used everywhere else in this
+            // same spec for progress, e.g. the Lock Screen's own two
+            // tracks between its three dots) with points at the 50/100
+            // boundaries. Segment/point colors are this file's own judgment
+            // call given the spec's wording here ("0-50 blue-white") is
+            // ambiguous — blue for the first half, the same progress green
+            // used everywhere else in the spec for the second, so
+            // "reached = green" reads consistently across both platforms.
+            val progressStyle = NotificationCompat.ProgressStyle()
+                .setProgressSegments(
+                    listOf(
+                        NotificationCompat.ProgressStyle.Segment(50).setColor(BRAND_COLOR),
+                        NotificationCompat.ProgressStyle.Segment(50).setColor(PROGRESS_GREEN),
+                    ),
+                )
+                .setProgressPoints(
+                    listOf(
+                        NotificationCompat.ProgressStyle.Point(50).setColor(PROGRESS_GREEN),
+                        NotificationCompat.ProgressStyle.Point(100).setColor(PROGRESS_GREEN),
+                    ),
+                )
+                .setProgress(progressPercent)
+            builder.setStyle(progressStyle)
+            builder.setRequestPromotedOngoing(true)
+        } else {
+            // Pre-36: colorized renders a plain setProgress bar white on
+            // the brand-blue card automatically — no extra styling needed
+            // (design_handoff_wassil/LIVE-ACTIVITY-1c.md's own Android
+            // section). BigTextStyle and ProgressStyle are mutually
+            // exclusive, which is only reachable on the API 36+ branch
+            // above anyway, but kept scoped to this branch for clarity.
+            builder.setColorized(true)
+            builder.setProgress(100, progressPercent, false)
+            if (contentText.isNotEmpty()) {
+                builder.setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+            }
         }
         return builder.build()
     }

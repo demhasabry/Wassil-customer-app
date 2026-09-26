@@ -213,10 +213,13 @@
   "@etaToDropoffLabel": {
     "placeholders": { "minutes": { "type": "int" } }
   },
-  "liveActivityEtaMinutes": "{minutes} min",
-  "@liveActivityEtaMinutes": {
-    "description": "Deliberately short — used only in the Dynamic Island / Lock Screen Live Activity's compact regions, which have room for only a few characters, unlike etaToPickupLabel/etaToDropoffLabel's full in-app sentence.",
-    "placeholders": { "minutes": { "type": "int" } }
+  "liveActivityStepPickedUp": "Picked up",
+  "liveActivityStepOnTheWay": "On the way",
+  "liveActivityStepDelivered": "Delivered",
+  "liveActivityMinutesUnit": "min",
+  "liveActivityMinutesShort": "m",
+  "@liveActivityMinutesShort": {
+    "description": "Live Activity / notification only — appended directly to a bare digit string (e.g. '8' + 'm' = '8m') in the Dynamic Island's compact pill and the Android notification, which have room for only a few characters. liveActivityMinutesUnit is the longer form used on the Lock Screen / expanded island."
   },
   "tapStarToRateError": "Tap a star to rate your rider",
   "submitRatingError": "Could not submit rating.",

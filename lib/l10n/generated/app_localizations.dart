@@ -1094,11 +1094,35 @@ abstract class AppLocalizations {
   /// **'ETA to you: ~{minutes} min'**
   String etaToDropoffLabel(int minutes);
 
-  /// Deliberately short — used only in the Dynamic Island / Lock Screen Live Activity's compact regions, which have room for only a few characters, unlike etaToPickupLabel/etaToDropoffLabel's full in-app sentence.
+  /// No description provided for @liveActivityStepPickedUp.
   ///
   /// In en, this message translates to:
-  /// **'{minutes} min'**
-  String liveActivityEtaMinutes(int minutes);
+  /// **'Picked up'**
+  String get liveActivityStepPickedUp;
+
+  /// No description provided for @liveActivityStepOnTheWay.
+  ///
+  /// In en, this message translates to:
+  /// **'On the way'**
+  String get liveActivityStepOnTheWay;
+
+  /// No description provided for @liveActivityStepDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered'**
+  String get liveActivityStepDelivered;
+
+  /// No description provided for @liveActivityMinutesUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'min'**
+  String get liveActivityMinutesUnit;
+
+  /// Live Activity / notification only — appended directly to a bare digit string (e.g. '8' + 'm' = '8m') in the Dynamic Island's compact pill and the Android notification, which have room for only a few characters. liveActivityMinutesUnit is the longer form used on the Lock Screen / expanded island.
+  ///
+  /// In en, this message translates to:
+  /// **'m'**
+  String get liveActivityMinutesShort;
 
   /// No description provided for @tapStarToRateError.
   ///

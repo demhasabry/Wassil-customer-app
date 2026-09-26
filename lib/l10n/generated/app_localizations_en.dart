@@ -552,9 +552,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String liveActivityEtaMinutes(int minutes) {
-    return '$minutes min';
-  }
+  String get liveActivityStepPickedUp => 'Picked up';
+
+  @override
+  String get liveActivityStepOnTheWay => 'On the way';
+
+  @override
+  String get liveActivityStepDelivered => 'Delivered';
+
+  @override
+  String get liveActivityMinutesUnit => 'min';
+
+  @override
+  String get liveActivityMinutesShort => 'm';
 
   @override
   String get tapStarToRateError => 'Tap a star to rate your rider';

@@ -16,6 +16,13 @@
      delivery takes. -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+<!-- Android 16+ Live Updates (LiveActivityChannel.kt's buildNotification,
+     API 36 branch): required for setRequestPromotedOngoing(true) to
+     actually promote the notification to a status-bar chip. Declaring it
+     is harmless on every earlier OS version — the whole ProgressStyle/
+     promoted-ongoing branch is itself gated behind a runtime SDK_INT check
+     and never runs there. -->
+<uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
     <application
         android:label="customer_app"
         android:name="${applicationName}"

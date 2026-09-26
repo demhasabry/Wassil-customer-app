@@ -48,6 +48,27 @@ jobs:
           gem install xcodeproj --no-document
           ruby ios/add_widget_extension.rb
 
+      - name: Check widget asset catalog is wired
+        # Fails fast, before spending build minutes, if
+        # add_widget_extension.rb's wire_widget_assets! didn't actually land
+        # Assets.xcassets in DeliveryWidget's Resources build phase — the
+        # widget would still build without it, just silently render an empty
+        # image instead of the real pin (see
+        # design_handoff_wassil/LIVE-ACTIVITY-1c.md).
+        run: grep -q "Assets.xcassets in Resources" ios/Runner.xcodeproj/project.pbxproj
+
+      - name: ContentState copies must match
+        # Runner's and the widget's DeliveryActivityAttributes.ContentState
+        # are two independently-compiled copies (see either file's own
+        # comment for why) that ActivityKit matches by decoding, not by
+        # Swift type identity — if they drift out of shape, ActivityKit
+        # silently drops every update on-device, with nothing in this log to
+        # explain why. Catching that here, as a text diff, is the only way
+        # to catch it at all without a Mac to run both targets side by side.
+        run: |
+          extract() { sed -n '/struct ContentState/,/^    }/p' "$1"; }
+          diff <(extract ios/Runner/LiveActivityChannel.swift) <(extract ios/DeliveryWidget/DeliveryLiveActivityWidget.swift)
+
       - name: Build profile iOS app pointed at the local Firebase emulator
         # --profile, not --debug — iOS 14+ refuses to launch a debug-mode
         # Flutter build standalone at all (outside Xcode/Flutter tooling),

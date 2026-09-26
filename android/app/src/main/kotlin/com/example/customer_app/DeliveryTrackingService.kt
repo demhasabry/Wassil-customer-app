@@ -22,7 +22,22 @@ class DeliveryTrackingService : Service() {
                     val statusText = intent.getStringExtra(EXTRA_STATUS_TEXT) ?: ""
                     val etaText = intent.getStringExtra(EXTRA_ETA_TEXT) ?: ""
                     val riderName = intent.getStringExtra(EXTRA_RIDER_NAME) ?: ""
-                    val notification = LiveActivityChannel.buildNotification(this, statusText, etaText, riderName)
+                    val vehicleText = intent.getStringExtra(EXTRA_VEHICLE_TEXT) ?: ""
+                    val plate = intent.getStringExtra(EXTRA_PLATE) ?: ""
+                    val progress = intent.getDoubleExtra(EXTRA_PROGRESS, 0.0)
+                    val unit = intent.getStringExtra(EXTRA_UNIT) ?: ""
+                    val unitShort = intent.getStringExtra(EXTRA_UNIT_SHORT) ?: ""
+                    val notification = LiveActivityChannel.buildNotification(
+                        this,
+                        statusText,
+                        etaText,
+                        riderName,
+                        vehicleText,
+                        plate,
+                        progress,
+                        unit,
+                        unitShort,
+                    )
                     startForeground(LiveActivityChannel.NOTIFICATION_ID, notification)
                 }
                 ACTION_STOP -> {
@@ -47,5 +62,10 @@ class DeliveryTrackingService : Service() {
         const val EXTRA_STATUS_TEXT = "statusText"
         const val EXTRA_ETA_TEXT = "etaText"
         const val EXTRA_RIDER_NAME = "riderName"
+        const val EXTRA_VEHICLE_TEXT = "vehicleText"
+        const val EXTRA_PLATE = "plate"
+        const val EXTRA_PROGRESS = "progress"
+        const val EXTRA_UNIT = "unit"
+        const val EXTRA_UNIT_SHORT = "unitShort"
     }
 }

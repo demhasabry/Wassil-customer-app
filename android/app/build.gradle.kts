@@ -57,5 +57,10 @@ dependencies {
     // (Android's answer to iOS's Live Activity — see that file's own
     // comment). Declared explicitly rather than relying on it arriving
     // transitively via firebase_messaging's own Android implementation.
-    implementation("androidx.core:core-ktx:1.13.1")
+    // 1.17.0 (not the previous 1.13.1) is the first STABLE release
+    // containing NotificationCompat.ProgressStyle and
+    // setRequestPromotedOngoing (Android 16 Live Updates support, added in
+    // API Changes for 1.17.0-alpha01 and released stable 2025-08-13) — see
+    // LiveActivityChannel.kt's own comment for how that's used.
+    implementation("androidx.core:core-ktx:1.17.0")
 }
