@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wassil pin mark, for the delivery-tracking notification's small icon.
+     Android re-masks a notification's small icon to a flat silhouette
+     regardless of fill color, so this is the same shape as
+     assets/logo/pin-*.svg (customer_app/rider_app), just re-expressed as a
+     VectorDrawable: viewportWidth/Height start at (0,0) with no equivalent
+     of SVG's non-zero viewBox origin, so the group's translate shifts the
+     original path (authored against the source logo file's 190,80 crop
+     origin — see LiveActivityChannel.kt's own comment) into that space. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="700"
+    android:viewportHeight="920">
+    <group
+        android:translateX="-190"
+        android:translateY="-80">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M291.232 183.789C428.199 45.4034 651.785 45.4037 788.752 183.789C902.912 299.133 922.813 477.832 836.818 615.461L648.454 916.914C629.492 947.26 619.994 962.429 610.616 971.357C571.059 1009.02 508.925 1009.02 469.368 971.357C459.99 962.429 450.491 947.258 431.53 916.914L243.191 615.461C157.196 477.833 177.073 299.133 291.232 183.789ZM542.068 296.628C471.351 296.628 414.024 353.955 414.024 424.671C414.031 495.382 471.355 552.715 542.068 552.715C612.779 552.714 670.105 495.382 670.111 424.671C670.111 353.955 612.783 296.628 542.068 296.628Z" />
+    </group>
+</vector>

@@ -13,12 +13,15 @@ import 'package:flutter/services.dart';
 /// straight to that instead.
 ///
 /// Deliberately best-effort throughout — every call is wrapped so a failure
-/// (unsupported iOS version, Live Activities disabled in Settings, running
-/// on Android where the native handler isn't registered at all) never
+/// (unsupported iOS version, Live Activities disabled in Settings) never
 /// breaks the actual delivery-tracking flow this sits alongside. The
 /// Dynamic Island itself only exists on iPhone 14 Pro and later; everything
 /// else just gets the same content as a Lock Screen card, which iOS handles
-/// automatically — nothing here needs to know which case it is.
+/// automatically — nothing here needs to know which case it is. On Android,
+/// this same channel/method contract is answered by
+/// android/app/src/main/kotlin/com/example/customer_app/LiveActivityChannel.kt,
+/// which posts a persistent notification instead — Android has no
+/// Dynamic-Island-equivalent hardware UI.
 class LiveActivityService {
   LiveActivityService._();
 

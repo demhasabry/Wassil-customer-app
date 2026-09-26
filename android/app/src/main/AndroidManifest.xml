@@ -7,6 +7,15 @@
      app is backgrounded — without this permission that request is silently
      denied and playback stops the moment the app loses foreground. -->
 <uses-permission android:name="android.permission.WAKE_LOCK"/>
+<!-- DeliveryTrackingService (see that file's own comment): a foreground
+     service is the only mechanism that gets Android's "important ongoing
+     task" notification treatment, matching what Uber/Google Maps use for
+     their own live-trip notifications. dataSync fits this app's own use of
+     it — an ongoing status mirrored live from Firestore — and its per-app
+     6-hours-per-24-hours budget (Android 14+) is far longer than any real
+     delivery takes. -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <application
         android:label="customer_app"
         android:name="${applicationName}"
@@ -33,6 +42,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <service
+            android:name=".DeliveryTrackingService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

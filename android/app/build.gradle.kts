@@ -50,3 +50,12 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // NotificationCompat/NotificationManagerCompat, for
+    // LiveActivityChannel.kt's persistent delivery-tracking notification
+    // (Android's answer to iOS's Live Activity — see that file's own
+    // comment). Declared explicitly rather than relying on it arriving
+    // transitively via firebase_messaging's own Android implementation.
+    implementation("androidx.core:core-ktx:1.13.1")
+}
